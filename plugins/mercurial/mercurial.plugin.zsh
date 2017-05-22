@@ -18,13 +18,51 @@ alias hgca='hg commit --amend'
 # list unresolved files (since hg does not list unmerged files in the status command)
 alias hgun='hg resolve --list'
 
+
+
 function in_hg() {
-  if [[ -d .hg ]] || $(hg summary > /dev/null 2>&1); then
-    echo 1
-  fi
+  # Defines path as current directory
+  local current_dir=$PWD
+  # While current path is not root path
+  # this approach is way faster than using hg status
+  # hg status can take ten or more seconds in large repositories
+  while [[ $current_dir != '/' ]]
+  do
+    if [[ -d "${current_dir}/.hg" ]]
+    then
+     echo 1
+     return;
+    fi
+    # Defines path as parent directory and keeps looking for :)
+    current_dir="${current_dir:h}"
+  done
 }
 
 function hg_get_branch_name() {
+  # this is way faster than running hg branch
+  # hg branch can take more than 10 seconds in large repositories
+  # Defines path as current directory
+  local current_dir=$PWD
+  # While current path is not root path
+  while [[ $current_dir != '/' ]]
+  do
+   if [[ -d "${current_dir}/.hg" ]]
+    then
+      if [[ -f "$current_dir/.hg/branch" ]]
+      then
+        echo $(<"$current_dir/.hg/branch")
+      else
+        echo 'default'
+      fi
+      return;
+    fi
+    # Defines path as parent directory and keeps looking for it
+    current_dir="${current_dir:h}"
+  done
+}
+
+
+function hg_get_branch_name_old() {
   if [ $(in_hg) ]; then
     echo $(hg branch)
   fi
@@ -41,7 +79,7 @@ $ZSH_THEME_REPO_NAME_COLOR$_DISPLAY$ZSH_PROMPT_BASE_COLOR$ZSH_PROMPT_BASE_COLOR$
 
 function hg_dirty_choose {
   if [ $(in_hg) ]; then
-    hg status 2> /dev/null | command grep -Eq '^\s*[ACDIM!?L]'
+    #hg status 2> /dev/null | command grep -Eq '^\s*[ACDIM!?L]'
     if [ $pipestatus[-1] -eq 0 ]; then
       # Grep exits with 0 when "One or more lines were selected", return "dirty".
       echo $1
